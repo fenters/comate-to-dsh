@@ -5,6 +5,7 @@ import { ComateAdapter } from '../../lib/adapter.mjs';
 import { resolveCredentials, maskSecret, invalidateCredentialCache } from '../../lib/auth.mjs';
 import { loginViaBrowser } from '../../lib/login.mjs';
 import { readCachedCatalog, writeCachedCatalog } from '../../lib/catalog.mjs';
+import { readHiddenModels, setHiddenModels, setModelVisible } from '../../lib/selection.mjs';
 import { fetchQuota, readCachedQuota } from '../../lib/quota.mjs';
 import { log as writeLog } from '../../lib/log.mjs';
 import { createRouteTable, mountRoutes } from './routes.mjs';
@@ -160,6 +161,7 @@ export function apply(ctx, rawConfig = {}) {
   const controller = {
     async status() {
       const catalog = adapter.catalog;
+      const hidden = readHiddenModels();
       return {
         version: VERSION,
         provider: PROVIDER,
@@ -171,6 +173,8 @@ export function apply(ctx, rawConfig = {}) {
         credentialError: state.credentialError,
         error: state.lastError,
         modelCount: catalog.models.length,
+        visibleCount: catalog.models.filter((model) => !hidden.has(model.id)).length,
+        hidden: [...hidden].sort(),
         counts: catalog.counts,
         catalogAt: catalog.at,
         catalogError: adapter.catalogError,
@@ -186,8 +190,18 @@ export function apply(ctx, rawConfig = {}) {
           contextWindow: model.contextWindow,
           multimodal: model.multimodal,
           ratio: model.ratio,
+          visible: !hidden.has(model.id),
         })),
       };
+    },
+
+    /** 设置模型可见性：给 modelId 时单个切换，给 hidden 时整体覆盖。 */
+    async visibility({ modelId, visible, hidden } = {}) {
+      const next = Array.isArray(hidden)
+        ? setHiddenModels(hidden)
+        : setModelVisible(modelId, visible !== false);
+      notifyAdaptersUpdated();
+      return { hidden: next, modelCount: adapter.catalog.models.length - next.length };
     },
 
     async models() {
@@ -333,6 +347,7 @@ export function apply(ctx, rawConfig = {}) {
         login: () => controller.login(),
         refresh: () => controller.refresh(),
         quota: (options) => controller.quota(options),
+        visibility: (options) => controller.visibility(options),
       });
     }
   } catch (error) {

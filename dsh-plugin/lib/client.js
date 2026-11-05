@@ -93,7 +93,10 @@
 .cmt-list { display:flex; flex-direction:column; gap:6px; margin-top:10px; max-height:420px; overflow:auto; }
 .cmt-item { display:flex; align-items:center; justify-content:space-between; gap:10px;
   padding:7px 10px; border-radius:7px; background:rgba(128,128,128,.09); font-size:13px; }
-.cmt-item-main { min-width:0; }
+.cmt-item-check { cursor:pointer; }
+.cmt-item-check:hover { background:rgba(128,128,128,.15); }
+.cmt-check { flex:none; width:15px; height:15px; margin:0; accent-color:var(--dsh-accent,#4c7dff); cursor:pointer; }
+.cmt-item-main { min-width:0; flex:1; }
 .cmt-item-name { font-weight:550; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .cmt-item-desc { font-size:11.5px; opacity:.6; margin-top:2px; }
 .cmt-tag { font-size:11px; padding:1px 7px; border-radius:99px; background:rgba(76,125,255,.16);
@@ -229,8 +232,9 @@
           : null);
     }
 
-    function ModelsCard({ status }) {
+    function ModelsCard({ status, onToggle }) {
       const models = status?.models || [];
+      const visibleCount = models.filter((model) => model.visible !== false).length;
       const groups = [
         { key: 'enterprise', label: '企业模型', hint: '企业自定义/私有模型，不扣积分' },
         { key: 'builtin', label: '内置模型', hint: 'Comate 内置公共额度模型，按倍率扣积分' },
@@ -244,14 +248,24 @@
       }
       return h('div', { className: 'cmt-card' },
         h('div', { className: 'cmt-head' },
-          h('div', { className: 'cmt-title' }, `模型（${models.length}）`),
-          h('div', { className: 'cmt-muted' }, '在 DSH 模型下拉里按「分组 · 模型名」显示')),
+          h('div', { className: 'cmt-title' }, `模型（${visibleCount}/${models.length}）`),
+          h('div', { className: 'cmt-muted' }, '取消勾选后不会出现在 DSH 模型下拉里')),
         groups.map((group) => {
           const list = models.filter((model) => model.group === group.key);
           if (!list.length) return null;
           return h('div', { key: group.key },
             h('div', { className: 'cmt-muted', style: { marginTop: '12px' } }, `${group.label} · ${group.hint}`),
-            h('div', { className: 'cmt-list' }, list.map((model) => h('div', { className: 'cmt-item', key: model.id },
+            h('div', { className: 'cmt-list' }, list.map((model) => h('label', {
+              className: 'cmt-item cmt-item-check',
+              key: model.id,
+              title: model.id,
+            },
+              h('input', {
+                type: 'checkbox',
+                className: 'cmt-check',
+                checked: model.visible !== false,
+                onChange: () => onToggle(model.id, model.visible === false),
+              }),
               h('div', { className: 'cmt-item-main' },
                 h('div', { className: 'cmt-item-name' }, model.displayName || model.name),
                 h('div', { className: 'cmt-item-desc' }, model.description || model.id)),
@@ -291,6 +305,22 @@
         }
       }, [load]);
 
+      // 勾选先本地翻转再落盘，避免整卡重渲染时闪一下。
+      const toggleModel = useCallback((modelId, nextVisible) => {
+        setStatus((current) => current && {
+          ...current,
+          models: current.models.map((model) => (model.id === modelId ? { ...model, visible: nextVisible } : model)),
+        });
+        postJson('/visibility', { modelId, visible: nextVisible })
+          .then((result) => {
+            setStatus((current) => current && { ...current, hidden: result.hidden, visibleCount: result.modelCount });
+          })
+          .catch((error) => {
+            setFatal(String(error?.message || error));
+            load(true);
+          });
+      }, [load]);
+
       return h('div', { className: 'cmt-wrap' },
         fatal ? h(Banner, { tone: 'bad' }, `面板请求失败：${fatal}`) : null,
         h(StatusCard, {
@@ -300,7 +330,7 @@
           onRefresh: () => run('refresh', '/refresh', {}, DEEP_TIMEOUT_MS),
         }),
         h(QuotaCard, { status }),
-        h(ModelsCard, { status }));
+        h(ModelsCard, { status, onToggle: toggleModel }));
     }
 
     function apply(ctx) {

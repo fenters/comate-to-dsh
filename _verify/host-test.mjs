@@ -68,6 +68,7 @@ try {
 
 check('注册了 adapter', registrations.length === 1 && registrations[0].providers[0] === 'comate');
 check('挂载了面板路由', routes.length >= 5, routes.map((route) => route.path).join(', '));
+check('挂载了模型可见性路由', routes.some((route) => route.path === '/comate/visibility'));
 check('注册了 comate 诊断服务', Boolean(provided.comate));
 check('设置了 effect 清理', effects >= 1, `${effects} 个`);
 

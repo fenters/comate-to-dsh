@@ -121,6 +121,22 @@ export function createRouteTable({ controller, log = () => {} }) {
         sendJson(res, 200, { ok: true, ...result });
       }),
     },
+    {
+      kind: 'exact',
+      path: '/comate/visibility',
+      handler: wrap(async (req, res) => {
+        if (methodGuard(req, res, ['POST'])) return;
+        if (!guard(req)) return sendJson(res, 403, { ok: false, error: 'missing x-comate-panel header' });
+        const body = await readJsonBody(req);
+        const result = await controller.visibility({
+          hidden: body?.hidden,
+          modelId: body?.modelId,
+          visible: body?.visible,
+        });
+        log(`面板更新模型可见性：隐藏 ${result.hidden.length} 个`);
+        sendJson(res, 200, { ok: true, ...result });
+      }),
+    },
   ];
 }
 
