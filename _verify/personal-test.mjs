@@ -4,11 +4,12 @@
  * 真机段凭据只从环境读：COMATE_TEST_BASE_URL / COMATE_TEST_API_KEY / COMATE_TEST_MODEL。
  */
 import { createCipheriv, randomBytes } from 'node:crypto';
-import { writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-const KEY = Buffer.from('xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx', 'utf8');
+import { comateAgentDir, comateExeCandidates } from '../lib/config.mjs';
+import { findSecretKey } from '../lib/secret.mjs';
 
 // 真机段凭据：只从环境读。仓库是公开的，硬编码 = 泄密。
 const GATEWAY = process.env.COMATE_TEST_BASE_URL || '';
@@ -30,6 +31,29 @@ function check(name, ok, detail) {
   }
 }
 
+function skip(name, why) {
+  console.log(`SKIP ${name} :: ${why}`);
+}
+
+/** 密钥是从 Comate 可执行文件里扫出来的，测试必须走同一条路。 */
+function extractKey() {
+  const exe = comateExeCandidates().find((candidate) => existsSync(candidate));
+  if (!exe) return null;
+  const models = join(comateAgentDir(), 'agent', 'models.json');
+  if (!existsSync(models)) return null;
+  const probe = JSON.parse(readFileSync(models, 'utf8'))?.providers?.official?.apiKey;
+  if (!probe) return null;
+  return findSecretKey(probe);
+}
+
+const KEY = extractKey();
+if (!KEY) {
+  console.log('SKIP 本机没有可用的 Comate 可执行文件与 models.json，解密段无法验证');
+  console.log('\n全部通过（跳过）');
+  process.exit(0);
+}
+check('从 Comate 可执行文件提取到 32 字节密钥', KEY.length === 32, String(KEY.length));
+
 function encryptSecret(plain) {
   const iv = randomBytes(12);
   const cipher = createCipheriv('aes-256-gcm', KEY, iv);
@@ -42,7 +66,7 @@ writeFileSync(fixturePath, JSON.stringify({
   providers: {
     official: {
       api: 'openai-completions',
-      apiKey: '111111',
+      apiKey: encryptSecret(FIXTURE_KEY),
       baseUrl: 'https://comate.wps.cn/llmproxy/v1/user',
       models: [{ id: '10000001/deepseek/deepseek-v4-pro//public', name: 'deepseek-v4-pro' }],
     },
