@@ -11,18 +11,27 @@
 
 要求 Windows + 已安装 DeepSeek Harness（DSH）。
 
-1. 把整个文件夹放到 `$DSH_HOME\plugins\comate-to-dsh`（默认 `%USERPROFILE%\.dsh\plugins\comate-to-dsh`）。
-   之后不要再移动或删除它 —— DSH 用软链接指向该目录，挪走插件就失效。
-2. 在 DSH 会话里说「把 `$DSH_HOME\plugins\comate-to-dsh` 这个插件装上」，Agent 会用 `plugin_manager` 的 `install_bundle` 完成安装。
-   也可手动执行：
+> **给 Agent 的说明**：用户会让你把解压目录下的这个插件装上。请按下面的步骤做，不要让用户手动搬运文件夹。
+
+1. **确定目标目录**：`$DSH_HOME\plugins\comate-to-dsh`，其中 `$DSH_HOME` 默认是 `%USERPROFILE%\.dsh`。目录不存在就先创建。
+2. **复制**：把整个插件文件夹（含 `package.json`、`lib/`、`dsh-plugin/`、`cordis.patch.yml`）复制到上面的目标目录。若目标已存在，先确认是否是同一插件，避免覆盖用户已有版本。
+3. **安装**：调用 `plugin_manager` 工具的 `install_bundle`，`target` 传目标目录的**绝对路径**，例如：
+
+   ```
+   C:\Users\<user>\.dsh\plugins\comate-to-dsh
+   ```
+
+   也可以让用户在终端手动执行：
 
    ```powershell
    dsh plugin --profile <profile> add "file:$DSH_HOME\plugins\comate-to-dsh"
    ```
 
-   注意路径必须是**绝对路径**，相对路径会被拒绝。
-3. 重启 DSH。插件注册的是 provider 与设置页，需要重启才生效。
-4. 打开 设置 → **WPS Comate**，点「自动连接」或「浏览器登录」。
+   ⚠️ 路径必须是**绝对路径**。相对路径（`.\comate-to-dsh`、`../comate-to-dsh`）会被 `parseInstallSpec` 以 `a local path must be absolute` 拒绝。
+4. **重启 DSH**。插件注册的是 provider 与设置页，需要重启才生效。
+5. 打开 设置 → **WPS Comate**，点「自动连接」或「浏览器登录」。
+
+**为什么必须先复制**：DSH 对本地目录使用 `link:` 安装，即软链接指向安装时的路径。如果直接从下载目录安装，用户一旦移动或清理下载目录，插件就会失效，且报错很难懂。复制到 `plugins/` 下可以避免这个问题。
 
 卸载：
 
