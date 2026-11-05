@@ -1,0 +1,5 @@
+# 把本包作为 bundle 插入到 DSH profile。
+# id 是运行时插件 id（路由 /plugins/<id>/*、设置段键），name 必须与 package.json 的 name 一致。
+- insert:
+    - id: comate
+      name: comate-to-dsh
