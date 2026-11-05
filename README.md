@@ -25,14 +25,14 @@
    也可以让用户在终端手动执行：
 
    ```powershell
-   dsh plugin --profile <profile> add "file:$DSH_HOME\plugins\comate-to-dsh"
+   dsh plugin --profile <profile> add "link:$DSH_HOME\plugins\comate-to-dsh"
    ```
 
-   ⚠️ 路径必须是**绝对路径**。相对路径（`.\comate-to-dsh`、`../comate-to-dsh`）会被 `parseInstallSpec` 以 `a local path must be absolute` 拒绝。
+   ⚠️ 用 `link:` 而不是 `file:`。`file:` 会让 pnpm 把它记成 injected 依赖，每次安装其他插件都要重新同步这个目录；`link:` 只建一个软链接，装别的插件时完全不碰它。路径必须是**绝对路径**，相对路径会被 `parseInstallSpec` 以 `a local path must be absolute` 拒绝。
 4. **重启 DSH**。插件注册的是 provider 与设置页，需要重启才生效。
 5. 打开 设置 → **WPS Comate**，点「自动连接」或「浏览器登录」。
 
-**为什么必须先复制**：DSH 对本地目录使用 `link:` 安装，即软链接指向安装时的路径。如果直接从下载目录安装，用户一旦移动或清理下载目录，插件就会失效，且报错很难懂。复制到 `plugins/` 下可以避免这个问题。
+**为什么必须先复制**：`link:` 是软链接，指向安装时的那个路径。如果直接从下载目录安装，用户一旦移动或清理下载目录，插件就会失效，且报错很难懂。复制到 `plugins/` 下可以避免这个问题。
 
 卸载：
 
